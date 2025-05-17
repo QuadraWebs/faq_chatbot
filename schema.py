@@ -31,3 +31,10 @@ class AnalyzeResponse(BaseModel):
     payment_method: Optional[str] = None
     vendor_address: Optional[str] = ""
     is_deductible: Optional[bool] = False
+
+class TaxSuggestion(BaseModel):
+    title: str
+    description: str
+
+class TaxSuggestionResponse(BaseModel):
+    suggestions: List[TaxSuggestion]

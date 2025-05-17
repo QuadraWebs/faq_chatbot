@@ -12,3 +12,5 @@ requests
 pandas
 langchain-community
 python-multipart
+psycopg2
+pypdf

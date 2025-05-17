@@ -44,7 +44,7 @@ def extract_from_image(image_path: str):
             },
         ],
         temperature=0,
-        # response_format={"type": "json_object"}
+        response_format={"type": "json_object"}
     )
 
     # Extract content within curly braces
@@ -92,7 +92,7 @@ def extract_from_pdf(pdf_path: str):
             },
         ],
         temperature=0,
-        # response_format={"type": "json_object"}
+        response_format={"type": "json_object"}
     )
 
     # Extract content within curly braces

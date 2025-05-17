@@ -1,11 +1,11 @@
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, UploadFile, File
+from fastapi import FastAPI, Depends, UploadFile, File, HTTPException
 from process_file import extract_from_pdf, extract_from_image
 from sqlalchemy.orm import Session
 from db import get_db
 from models import ChatbotLog, FAQ, UserPreference
-from schema import ChatRequest, ChatResponse, Message, AnalyzeResponse
+from schema import ChatRequest, ChatResponse, Message, AnalyzeResponse, TaxSuggestionResponse
 from prompt import build_prompt
 from qwen import call_qwen
 from vectorstore import get_top_faqs, init_faq_index_from_db
@@ -101,3 +101,15 @@ async def analyze_receipt(file: UploadFile = File(...)):
         raise RuntimeError("Tax categorization failed. Please try again.")
 
     return result
+
+
+@app.get("/tax-suggestions", response_model=TaxSuggestionResponse)
+async def tax_suggestions():
+    try:
+        calculator = TaxCalculator()
+        suggestions = calculator.get_tax_deduction_suggestions()
+    except Exception as e:
+        print(f"[Error] Suggestion generation failed: {e}")
+        raise HTTPException(status_code=500, detail="Tax suggestion generation failed.")
+
+    return suggestions
