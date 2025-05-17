@@ -101,8 +101,3 @@ async def analyze_receipt(file: UploadFile = File(...)):
         raise RuntimeError("Tax categorization failed. Please try again.")
 
     return result
-
-
-print("✅ FastAPI app initialized. Routes:")
-for route in app.routes:
-    print(f"  {route.path}  [{route.methods}]")
