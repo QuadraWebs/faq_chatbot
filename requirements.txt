@@ -9,3 +9,7 @@ sentence-transformers
 chromadb
 uvicorn
 psycopg2
+requests
+pandas
+langchain-community
+python-multipart

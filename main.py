@@ -1,15 +1,17 @@
+import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends#, UploadFile, File
-# from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Depends, UploadFile, File
+from process_file import extract_from_pdf, extract_from_image
 from sqlalchemy.orm import Session
 from db import get_db
 from models import ChatbotLog, FAQ, UserPreference
-from schema import ChatRequest, ChatResponse, Message
+from schema import ChatRequest, ChatResponse, Message, AnalyzeResponse
 from prompt import build_prompt
 from qwen import call_qwen
 from vectorstore import get_top_faqs, init_faq_index_from_db
 from typing import AsyncGenerator
 from vectorstore import faq_collection
+from calculation import TaxCalculator
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
@@ -33,8 +35,8 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     db_history = db.query(ChatbotLog).filter_by(user_id=user_id).order_by(ChatbotLog.created_at.desc()).limit(10).all()
     history = []
     for log in reversed(db_history):
-        history.append(Message(role="user", text=log.question))
-        history.append(Message(role="assistant", text=log.answer))
+        history.append(Message(role="user", text=log.user_message))
+        history.append(Message(role="assistant", text=log.bot_response))
 
     # Retrieve top 3 matching FAQs with fallback
     try:
@@ -63,20 +65,44 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
         print(f"[Error] call_qwen failed: {e}")
         answer = "Sorry, something went wrong while generating a response."
 
-    # Save to DB (intent placeholder left for future use)
-    log = ChatbotLog(user_id=user_id, question=user_input, answer=answer, intent="")
+    # Save to DB
+    log = ChatbotLog(user_id=user_id, user_message=user_input, bot_response=answer)
     db.add(log)
     db.commit()
 
     return ChatResponse(answer=answer)
 
 
+@app.post("/analyze", response_model=AnalyzeResponse)
+async def analyze_receipt(file: UploadFile = File(...)):
+    extension = file.filename.split('.')[-1].lower()
+    contents = await file.read()
 
-# @app.post("/process-file")
-# async def process_file(file: UploadFile = File(...)):
-#     content = await file.read()
-#
-#     # Pass content to your model pipeline
-#     result = your_model_ocr_and_classify(content, file.filename)
-#
-#     return JSONResponse(content=result)
+    with open(file.filename, "wb") as f:
+        f.write(contents)
+
+    try:
+        if extension == "pdf":
+            result = extract_from_pdf(file.filename)
+        else:
+            result = extract_from_image(file.filename)
+    except Exception as e:
+        print(f"[Error] Extraction failed: {e}")
+        os.remove(file.filename)
+        raise RuntimeError("Failed to process the uploaded file. Please check the file format and content.")
+
+    os.remove(file.filename)
+
+    try:
+        calculator = TaxCalculator()
+        calculator.add_items(result)
+    except Exception as e:
+        print(f"[Error] Tax categorization failed: {e}")
+        raise RuntimeError("Tax categorization failed. Please try again.")
+
+    return result
+
+
+print("✅ FastAPI app initialized. Routes:")
+for route in app.routes:
+    print(f"  {route.path}  [{route.methods}]")
