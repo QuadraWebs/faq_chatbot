@@ -1,5 +1,5 @@
 from sentence_transformers import SentenceTransformer
-from models import FAQQuestion
+from models import FAQ
 import numpy as np
 from typing import List
 import chromadb
@@ -19,7 +19,7 @@ def embed_text(text: str) -> np.ndarray:
 def embed_batch(texts: List[str]) -> List[np.ndarray]:
     return embedder.encode(texts, convert_to_numpy=True).tolist()
 
-def init_faq_index_from_db(faqs: List[FAQQuestion]):
+def init_faq_index_from_db(faqs: List[FAQ]):
     """Initialize index with verified FAQ data."""
     existing_ids = set(faq_collection.get()['ids'])
     new_faqs = [faq for faq in faqs if str(faq.id) not in existing_ids]
@@ -42,7 +42,7 @@ def init_faq_index_from_db(faqs: List[FAQQuestion]):
     chroma_client.persist()
     print(f"[ChromaDB] Indexed {len(new_faqs)} new FAQ entries.")
 
-def get_top_faqs(query: str, top_k=3) -> List[FAQQuestion]:
+def get_top_faqs(query: str, top_k=3) -> List[FAQ]:
     query_vector = embed_text(query).tolist()
     results = faq_collection.query(
         query_embeddings=[query_vector],
@@ -54,11 +54,11 @@ def get_top_faqs(query: str, top_k=3) -> List[FAQQuestion]:
 
     metadatas = results["metadatas"][0]
     return [
-        FAQQuestion(
+        FAQ(
             id=meta["faq_id"],
             question=meta["question"],
             answer=meta["answer"],
-            tags="",
+            category="",
             created_at=None
         )
         for meta in metadatas

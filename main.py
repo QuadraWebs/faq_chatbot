@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends#, UploadFile, File
 # from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from db import get_db
-from models import UserChatLog, FAQQuestion, UserProfilePreference
+from models import ChatbotLog, FAQ, UserPreference
 from schema import ChatRequest, ChatResponse, Message
 from prompt import build_prompt
 from qwen import call_qwen
@@ -16,7 +16,7 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
     # Only initialize FAQ index if it's empty
     if len(faq_collection.get()['ids']) == 0:
         with next(get_db()) as db:
-            faqs = db.query(FAQQuestion).all()
+            faqs = db.query(FAQ).all()
             init_faq_index_from_db(faqs)
     else:
         print("[Startup] FAQ embeddings already exist in ChromaDB.")
@@ -30,22 +30,22 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     user_input = request.message
 
     # Load user chat history from DB
-    db_history = db.query(UserChatLog).filter_by(user_id=user_id).order_by(UserChatLog.created_at.desc()).limit(10).all()
+    db_history = db.query(ChatbotLog).filter_by(user_id=user_id).order_by(ChatbotLog.created_at.desc()).limit(10).all()
     history = []
     for log in reversed(db_history):
         history.append(Message(role="user", text=log.question))
         history.append(Message(role="assistant", text=log.answer))
-    print(history)
+
     # Retrieve top 3 matching FAQs with fallback
     try:
         faqs = get_top_faqs(user_input, top_k=3)
     except Exception as e:
         faqs = []
         print(f"[Error] get_top_faqs failed: {e}")
-    print(faqs)
+
     # Fetch profession from user_profile_preferences
     profession_pref = (
-        db.query(UserProfilePreference)
+        db.query(UserPreference)
         .filter_by(user_id=user_id, question="profession")
         .first()
     )
@@ -64,7 +64,7 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
         answer = "Sorry, something went wrong while generating a response."
 
     # Save to DB (intent placeholder left for future use)
-    log = UserChatLog(user_id=user_id, question=user_input, answer=answer, intent="")
+    log = ChatbotLog(user_id=user_id, question=user_input, answer=answer, intent="")
     db.add(log)
     db.commit()
 

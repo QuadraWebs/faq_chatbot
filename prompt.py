@@ -1,8 +1,8 @@
 from typing import List
-from models import FAQQuestion
+from models import FAQ
 from schema import Message
 
-def build_prompt(history: List[Message], user_input: str, faqs: List[FAQQuestion], profession: str) -> str:
+def build_prompt(history: List[Message], user_input: str, faqs: List[FAQ], profession: str) -> str:
     prompt_sections = []
 
     if profession:
